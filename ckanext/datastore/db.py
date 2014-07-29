@@ -1110,9 +1110,11 @@ def delete(context, data_dict):
     try:
         # check if table exists
         if not 'filters' in data_dict:
-            context['connection'].execute(
-                u'DROP TABLE "{0}" CASCADE'.format(data_dict['resource_id'])
-            )
+            table = sqlalchemy.schema.Table(data_dict['resource_id'],
+                                            sqlalchemy.MetaData(bind=engine),
+                                            autoload=True,
+                                            autoload_with=engine)
+            table.drop()
         else:
             delete_data(context, data_dict)
 
