@@ -211,9 +211,14 @@ def _guess_type(field):
 
 def _get_fields(context, data_dict):
     fields = []
-    all_fields = context['connection'].execute(
-        u'SELECT * FROM "{0}" LIMIT 1'.format(data_dict['resource_id'])
+    connection = context['connection']
+    table = sqlalchemy.schema.Table(data_dict['resource_id'],
+        sqlalchemy.MetaData(bind=connection),
+        autoload=True,
+        autoload_with=connection,
     )
+    all_fields = connection.execute(sqlalchemy.sql.select([table], limit=1))
+
     for field in all_fields.cursor.description:
         if not field[0].startswith('_'):
             fields.append({
@@ -277,6 +282,12 @@ def convert(data, type_name):
     return unicode(data)
 
 
+class TsVector(sqlalchemy.types.UserDefinedType):
+    """ A custom type for PostgreSQL's tsvector type. """
+    def get_col_spec(self):
+        return 'TSVECTOR'
+
+
 def create_table(context, data_dict):
     '''Create table from combination of fields and first row of data.'''
 
@@ -315,16 +326,26 @@ def create_table(context, data_dict):
                     'type': _guess_type(records[0][field_id])
                 })
 
-    fields = datastore_fields + supplied_fields + extra_fields
-    sql_fields = u", ".join([u'"{0}" {1}'.format(
-        f['id'], f['type']) for f in fields])
+    metadata = sqlalchemy.MetaData(bind=context['connection'])
+    sqlalchemy_types = {
+        'int': sqlalchemy.Integer,
+        'float': sqlalchemy.Float,
+        'numeric': sqlalchemy.Numeric,
+        'text': sqlalchemy.TEXT,
+        'timestamp': sqlalchemy.DateTime,
+    }
 
-    sql_string = u'CREATE TABLE "{0}" ({1});'.format(
+    columns = [ sqlalchemy.Column(f['id'], sqlalchemy_types[f['type']]) for
+                f in supplied_fields + extra_fields]
+
+    sqlalchemy.schema.Table(
         data_dict['resource_id'],
-        sql_fields
+        metadata,
+        sqlalchemy.Column('_id', sqlalchemy.Integer, primary_key=True),
+        sqlalchemy.Column('_full_text',  TsVector),
+        *columns
     )
-
-    context['connection'].execute(sql_string.replace('%', '%%'))
+    metadata.create_all()
 
 
 def _get_aliases(context, data_dict):
