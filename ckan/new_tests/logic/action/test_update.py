@@ -425,6 +425,284 @@ class TestUpdate(object):
                                            "http://a.html"]
 
 
+class TestGroupUpdateDatasetMembership(object):
+    '''ckan#1907
+
+    When calling group_update() for 'users', 'packages', 'groups', 'tags' and
+    'extras':
+      * providing a list will update the current membership of that key
+      * the empty list [] will delete all membership of that key
+      * when not specified, membership will remain the same
+    '''
+    @classmethod
+    def setup_class(cls):
+        helpers.reset_db()
+
+    def setup(self):
+        self.datasets = [factories.Dataset() for i in range(3)]
+        self.group = factories.Group(packages=self.datasets)
+        self.user = helpers.call_action('get_site_user')
+
+    def teardown(self):
+        helpers.reset_db()
+
+    def test_providing_dataset_list_updates_dataset_membership(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.user['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+            packages=[
+                {'name': self.datasets[0]['name']},
+                {'name': self.datasets[1]['name']},
+            ]
+        )
+
+        nose.tools.assert_equals(2, len(updated_group['packages']))
+
+        names = set(i['name'] for i in updated_group['packages'])
+        nose.tools.assert_equals(
+            set(i['name'] for i in self.datasets[:2]),
+            names
+        )
+
+    def test_empty_list_removes_all_dataset_members(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.user['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+            packages=[]
+        )
+        nose.tools.assert_equals([], updated_group['packages'])
+
+    def test_that_no_dataset_key_in_data_dict_keeps_current_membership(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.user['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+        )
+        nose.tools.assert_equals(3, len(updated_group['packages']))
+        names = set(i['name'] for i in updated_group['packages'])
+        nose.tools.assert_equals(set(i['name'] for i in self.datasets), names)
+
+
+class TestGroupUpdateUserMembership(object):
+    '''ckan#1907
+
+    When calling group_update() for 'users', 'packages', 'groups', 'tags' and
+    'extras':
+      * providing a list will update the current membership of that key
+      * the empty list [] will delete all membership of that key
+      * when not specified, membership will remain the same
+    '''
+    @classmethod
+    def setup_class(cls):
+        helpers.reset_db()
+
+    def setup(self):
+        self.users = [factories.User() for i in range(3)]
+        self.group = factories.Group(user=self.users[0],
+                                     users=self.users)
+
+    def teardown(self):
+        helpers.reset_db()
+
+    def test_providing_user_list_updates_user_membership(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.users[0]['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+            users=[
+                {'name': self.users[0]['name']},
+                {'name': self.users[1]['name']},
+            ]
+        )
+        nose.tools.assert_equals(2, len(updated_group['users']))
+        names = [i['name'] for i in updated_group['users']]
+        nose.tools.assert_equals(
+            [i['name'] for i in self.users[:2]],
+            names
+        )
+
+    def test_empty_list_removes_all_user_members(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.users[0]['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+            users=[]
+        )
+        nose.tools.assert_equals([], updated_group['users'])
+
+    def test_that_no_user_key_in_data_dict_keeps_current_user_membership(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.users[0]['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+        )
+        nose.tools.assert_equals(3, len(updated_group['users']))
+        names = [i['name'] for i in updated_group['users']]
+        nose.tools.assert_equals([i['name'] for i in self.users], names)
+
+
+class TestGroupUpdateSubGroups(object):
+    '''ckan#1907
+
+    When calling group_update() for 'users', 'packages', 'groups', 'tags' and
+    'extras':
+      * providing a list will update the current membership of that key
+      * the empty list [] will delete all membership of that key
+      * when not specified, membership will remain the same
+    '''
+    @classmethod
+    def setup_class(cls):
+        helpers.reset_db()
+
+    def setup(self):
+        self.subgroups = [factories.Group() for i in range(3)]
+        self.group = factories.Group(groups=self.subgroups)
+        self.user = helpers.call_action('get_site_user')
+
+    def teardown(self):
+        helpers.reset_db()
+
+    def test_providing_list_of_groups_updates_subgroups(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.user['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+            groups=[
+                {'name': self.subgroups[0]['name']},
+                {'name': self.subgroups[1]['name']},
+            ]
+        )
+
+        nose.tools.assert_equals(2, len(updated_group['groups']))
+
+        names = set(i['name'] for i in updated_group['groups'])
+        nose.tools.assert_equals(
+            set(i['name'] for i in self.subgroups[:2]),
+            names
+        )
+
+    def test_empty_list_removes_all_subgroups(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.user['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+            groups=[]
+        )
+        nose.tools.assert_equals([], updated_group['groups'])
+
+    def test_that_no_groups_key_in_data_dict_keeps_current_groups(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.user['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+        )
+        nose.tools.assert_equals(3, len(updated_group['groups']))
+        names = set(i['name'] for i in updated_group['groups'])
+        nose.tools.assert_equals(set(i['name'] for i in self.subgroups), names)
+
+
+class TestGroupUpdateExtras(object):
+    '''ckan#1907
+
+    When calling group_update() for 'users', 'packages', 'groups', 'tags' and
+    'extras':
+      * providing a list will update the current membership of that key
+      * the empty list [] will delete all membership of that key
+      * when not specified, membership will remain the same
+    '''
+    @classmethod
+    def setup_class(cls):
+        helpers.reset_db()
+
+    def setup(self):
+        self.extras = [
+            {'key': 'key_1', 'value': 'value'},
+            {'key': 'key_2', 'value': 'value'},
+            {'key': 'key_3', 'value': 'value'},
+        ]
+        self.group = factories.Group(extras=self.extras)
+        self.user = helpers.call_action('get_site_user')
+
+    def teardown(self):
+        helpers.reset_db()
+
+    def test_providing_list_of_extras_updates_group_extras(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.user['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+            extras=[
+                {'key': 'key_1', 'value': 'value'},
+                {'key': 'key_2', 'value': 'value'},
+            ]
+        )
+
+        nose.tools.assert_equals(2, len(updated_group['extras']))
+
+        names = set(i['key'] for i in updated_group['extras'])
+        nose.tools.assert_equals(
+            set(i['key'] for i in self.extras[:2]),
+            names
+        )
+
+    def test_empty_list_removes_all_subgroups(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.user['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+            extras=[],
+        )
+        nose.tools.assert_equals([], updated_group['extras'])
+
+    def test_that_no_groups_key_in_data_dict_keeps_current_groups(self):
+        updated_group = helpers.call_action(
+            'group_update',
+            context={'user': self.user['name']},
+            id=self.group['id'],
+            # needs name as the call to form_to_db_schema is not passed as
+            # 'api' in the context so the default_group_schema is used
+            name=self.group['name'],
+        )
+        nose.tools.assert_equals(3, len(updated_group['extras']))
+        names = set(i['key'] for i in updated_group['extras'])
+        nose.tools.assert_equals(set(i['key'] for i in self.extras), names)
+
+
 class TestUpdateSendEmailNotifications(object):
     @classmethod
     def setup_class(cls):
