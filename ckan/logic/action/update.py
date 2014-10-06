@@ -623,8 +623,7 @@ def _group_or_org_update(context, data_dict, is_org=False):
     else:
         rev.message = _(u'REST API: Update object %s') % data.get("name")
 
-    group = model_save.group_dict_save(data, context,
-        prevent_packages_update=is_org)
+    group = model_save.group_dict_save(data, context)
 
     if is_org:
         plugin_type = plugins.IOrganizationController
@@ -991,7 +990,6 @@ def package_update_rest(context, data_dict):
             raise ValidationError(error_dict)
 
     context["package"] = pkg
-    context["allow_partial_update"] = False
     dictized_package = model_save.package_api_to_dict(data_dict, context)
 
     _check_access('package_update_rest', context, dictized_package)
@@ -1010,7 +1008,6 @@ def group_update_rest(context, data_dict):
     id = _get_or_bust(data_dict, "id")
     group = model.Group.get(id)
     context["group"] = group
-    context["allow_partial_update"] = True
     dictized_group = model_save.group_api_to_dict(data_dict, context)
 
     _check_access('group_update_rest', context, dictized_group)

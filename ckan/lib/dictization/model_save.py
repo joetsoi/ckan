@@ -5,8 +5,9 @@ import logging
 from sqlalchemy.orm import class_mapper
 
 import ckan.lib.dictization as d
-import ckan.lib.helpers as h
 import ckan.new_authz as new_authz
+
+from ckan.lib.search import rebuild
 
 log = logging.getLogger(__name__)
 
@@ -59,8 +60,7 @@ def resource_dict_save(res_dict, context):
     return obj
 
 def package_resource_list_save(res_dicts, package, context):
-    allow_partial_update = context.get("allow_partial_update", False)
-    if res_dicts is None and allow_partial_update:
+    if res_dicts is None:
         return
 
     pending = context.get('pending')
@@ -84,8 +84,7 @@ def package_resource_list_save(res_dicts, package, context):
 
 
 def package_extras_save(extra_dicts, obj, context):
-    allow_partial_update = context.get("allow_partial_update", False)
-    if extra_dicts is None and allow_partial_update:
+    if extra_dicts is None:
         return
 
     model = context["model"]
@@ -128,7 +127,6 @@ def package_extras_save(extra_dicts, obj, context):
         extra.state = state
 
 def group_extras_save(extras_dicts, context):
-
     model = context["model"]
     session = context["session"]
 
@@ -141,8 +139,7 @@ def group_extras_save(extras_dicts, context):
     return result_dict
 
 def package_tag_list_save(tag_dicts, package, context):
-    allow_partial_update = context.get("allow_partial_update", False)
-    if tag_dicts is None and allow_partial_update:
+    if tag_dicts is None:
         return
 
     model = context["model"]
@@ -191,9 +188,7 @@ def package_tag_list_save(tag_dicts, package, context):
     package.package_tag_all[:] = tag_package_tag.values()
 
 def package_membership_list_save(group_dicts, package, context):
-
-    allow_partial_update = context.get("allow_partial_update", False)
-    if group_dicts is None and allow_partial_update:
+    if group_dicts is None:
         return
 
     capacity = 'public'
@@ -259,9 +254,7 @@ def package_membership_list_save(group_dicts, package, context):
 
 
 def relationship_list_save(relationship_dicts, package, attr, context):
-
-    allow_partial_update = context.get("allow_partial_update", False)
-    if relationship_dicts is None and allow_partial_update:
+    if relationship_dicts is None:
         return
 
     model = context["model"]
@@ -289,7 +282,6 @@ def relationship_list_save(relationship_dicts, package, attr, context):
 def package_dict_save(pkg_dict, context):
     model = context["model"]
     package = context.get("package")
-    allow_partial_update = context.get("allow_partial_update", False)
     if package:
         pkg_dict["id"] = package.id
     Package = model.Package
@@ -328,10 +320,7 @@ def group_member_save(context, group_dict, member_table_name):
     entity_list = group_dict.get(member_table_name, None)
 
     if entity_list is None:
-        if context.get('allow_partial_update', False):
-            return {'added': [], 'removed': []}
-        else:
-            entity_list = []
+        return {'added': [], 'removed': []}
 
     entities = {}
     Member = model.Member
@@ -381,13 +370,11 @@ def group_member_save(context, group_dict, member_table_name):
     return processed
 
 
-def group_dict_save(group_dict, context, prevent_packages_update=False):
-    from ckan.lib.search import rebuild
+def group_dict_save(group_dict, context):
 
     model = context["model"]
     session = context["session"]
     group = context.get("group")
-    allow_partial_update = context.get("allow_partial_update", False)
 
     Group = model.Group
     if group:
@@ -399,26 +386,17 @@ def group_dict_save(group_dict, context, prevent_packages_update=False):
 
     context['group'] = group
 
-    # Under the new org rules we do not want to be able to update datasets
-    # via group edit so we need a way to prevent this.  It may be more
-    # sensible in future to send a list of allowed/disallowed updates for
-    # groups, users, tabs etc.
-    if not prevent_packages_update:
-        pkgs_edited = group_member_save(context, group_dict, 'packages')
-    else:
-        pkgs_edited = {
-            'added': [],
-            'removed': []
-        }
+    datasets_changed = group_member_save(context, group_dict, 'packages')
     group_users_changed = group_member_save(context, group_dict, 'users')
     group_groups_changed = group_member_save(context, group_dict, 'groups')
     group_tags_changed = group_member_save(context, group_dict, 'tags')
     log.debug('Group save membership changes - Packages: %r  Users: %r  '
-            'Groups: %r  Tags: %r', pkgs_edited, group_users_changed,
-            group_groups_changed, group_tags_changed)
+              'Groups: %r  Tags: %r', datasets_changed, group_users_changed,
+              group_groups_changed, group_tags_changed)
 
-    extras = group_extras_save(group_dict.get("extras", {}), context)
-    if extras or not allow_partial_update:
+    if group_dict.get('extras') is not None:
+        extras = group_extras_save(group_dict['extras'], context)
+
         old_extras = set(group.extras.keys())
         new_extras = set(extras.keys())
         for key in old_extras - new_extras:
@@ -428,11 +406,11 @@ def group_dict_save(group_dict, context, prevent_packages_update=False):
 
     # We will get a list of packages that we have either added or
     # removed from the group, and trigger a re-index.
-    package_ids = pkgs_edited['removed']
-    package_ids.extend( pkgs_edited['added'] )
+    package_ids = datasets_changed['removed']
+    package_ids.extend(datasets_changed['added'])
     if package_ids:
         session.commit()
-        map( rebuild, package_ids )
+        rebuild(package_ids=package_ids)
 
     return group
 
@@ -523,7 +501,6 @@ def group_api_to_dict(api1_dict, context):
 def task_status_dict_save(task_status_dict, context):
     model = context["model"]
     task_status = context.get("task_status")
-    allow_partial_update = context.get("allow_partial_update", False)
     if task_status:
         task_status_dict["id"] = task_status.id
 

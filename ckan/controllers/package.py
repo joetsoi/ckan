@@ -874,8 +874,6 @@ class PackageController(base.BaseController):
             data_dict = clean_dict(dict_fns.unflatten(
                 tuplize_dict(parse_params(request.POST))))
             if ckan_phase:
-                # prevent clearing of groups etc
-                context['allow_partial_update'] = True
                 # sort the tags
                 data_dict['tags'] = self._tag_string_to_list(
                     data_dict['tag_string'])
@@ -951,8 +949,6 @@ class PackageController(base.BaseController):
             data_dict = clean_dict(dict_fns.unflatten(
                 tuplize_dict(parse_params(request.POST))))
             if '_ckan_phase' in data_dict:
-                # we allow partial updates to not destroy existing resources
-                context['allow_partial_update'] = True
                 data_dict['tags'] = self._tag_string_to_list(
                     data_dict['tag_string'])
                 del data_dict['_ckan_phase']

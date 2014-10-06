@@ -553,7 +553,6 @@ class GroupController(base.BaseController):
                 tuplize_dict(parse_params(request.params))))
             context['message'] = data_dict.get('log_message', '')
             data_dict['id'] = id
-            context['allow_partial_update'] = True
             group = self._action('group_update')(context, data_dict)
             if id != group['name']:
                 self._force_reindex(group)
