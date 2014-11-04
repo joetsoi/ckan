@@ -8,6 +8,7 @@ import logging
 import pprint
 import copy
 import hashlib
+from collections import namedtuple
 
 import pylons
 import distutils.version
@@ -389,7 +390,7 @@ def create_indexes(context, data_dict):
     primary_key = datastore_helpers.get_list(data_dict.get('primary_key'))
 
     sql_index_tmpl = u'CREATE {unique} INDEX "{name}" ON "{res_id}"'
-    sql_index_string_method = sql_index_tmpl + u' USING {method}({fields})'
+    sql_index_string_method = sql_index_tmpl + u' USING {method}({field})'
     sql_index_string = sql_index_tmpl + u' ({fields})'
     sql_index_strings = []
 
@@ -401,7 +402,6 @@ def create_indexes(context, data_dict):
                                      data_dict,
                                      sql_index_string_method,
                                      fields)
-    sql_index_strings = sql_index_strings + fts_indexes
 
     if indexes is not None:
         _drop_indexes(context, data_dict, False)
@@ -444,6 +444,13 @@ def create_indexes(context, data_dict):
         if not has_index:
             connection.execute(sql_index_string)
 
+    for ftx_index, fields in fts_indexes:
+        ftx_index = ftx_index.replace('%', '%%')
+        has_index = [c for c in current_indexes
+                     if sql_index_string.find(c) != -1]
+        if not has_index:
+            connection.execute(sqlalchemy.sql.text(ftx_index), **fields)
+
 
 def _build_fts_indexes(connection, data_dict, sql_index_str_method, fields):
     fts_indexes = []
@@ -454,16 +461,31 @@ def _build_fts_indexes(connection, data_dict, sql_index_str_method, fields):
     fts_lang = data_dict.get('lang', default_fts_lang)
 
     # create full-text search indexes
-    to_tsvector = lambda x: u"to_tsvector('{0}', '{1}')".format(fts_lang, x)
+    # add the '_full_text' column index
+    fts_indexes.append(
+        (
+            sql_index_str_method.format(
+            res_id=resource_id,
+            unique='',
+            name=_generate_index_name(resource_id, '_full_text'),
+            method='gist', field='_full_text'
+            ),
+            {}
+        )
+    )
+
+    # use bind parameters for the language and field for the remaining indexes
+    to_tsvector = u"to_tsvector(:lang, :field)"
     text_fields = [x['id'] for x in fields if x['type'] == 'text']
-    for text_field in ['_full_text'] + text_fields:
-        if text_field != '_full_text':
-            text_field = to_tsvector(text_field)
-        fts_indexes.append(sql_index_str_method.format(
+    for text_field in text_fields:
+        fts_index_sql_str = sql_index_str_method.format(
             res_id=resource_id,
             unique='',
             name=_generate_index_name(resource_id, text_field),
-            method='gist', fields=text_field))
+            method='gist', field=to_tsvector
+        )
+        params = {'lang': fts_lang, 'field': text_field}
+        fts_indexes.append((fts_index_sql_str, params))
 
     return fts_indexes
 
