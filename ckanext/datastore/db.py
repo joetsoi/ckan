@@ -462,17 +462,15 @@ def _build_fts_indexes(connection, data_dict, sql_index_str_method, fields):
 
     # create full-text search indexes
     # add the '_full_text' column index
-    fts_indexes.append(
-        (
-            sql_index_str_method.format(
+    fts_indexes.append((
+        sql_index_str_method.format(
             res_id=resource_id,
             unique='',
             name=_generate_index_name(resource_id, '_full_text'),
             method='gist', field='_full_text'
-            ),
-            {}
-        )
-    )
+        ),
+        {}
+    ))
 
     # use bind parameters for the language and field for the remaining indexes
     to_tsvector = u"to_tsvector(:lang, :field)"

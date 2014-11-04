@@ -92,7 +92,7 @@ class TestCreateIndexes(object):
             sql_str = u'USING gist({field})'.format(field=field)
 
         calls = connection.execute.call_args_list
-        fts_calls = [ call for call in calls if isinstance(call[0][0], TextClause) ]
+        fts_calls = [call for call in calls if isinstance(call[0][0], TextClause)]
 
         was_called = False
         for call in fts_calls:
