@@ -113,10 +113,8 @@ class TestDatastoreCreateNewTests(object):
         }
         result = helpers.call_action('datastore_create', **data)
         resource_id = result['resource_id']
-        assert self._has_index_on_field(resource_id,
-                                        "to_tsvector('english', 'boo%k')")
-        assert self._has_index_on_field(resource_id,
-                                        "to_tsvector('english', 'author')")
+        assert self._has_index_on_field(resource_id, 'boo%k')
+        assert self._has_index_on_field(resource_id, 'author')
 
     def test_create_doesnt_add_more_indexes_when_updating_data(self):
         resource = factories.Resource()

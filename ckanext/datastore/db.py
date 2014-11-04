@@ -447,7 +447,7 @@ def create_indexes(context, data_dict):
     for ftx_index, fields in fts_indexes:
         ftx_index = ftx_index.replace('%', '%%')
         has_index = [c for c in current_indexes
-                     if sql_index_string.find(c) != -1]
+                     if ftx_index.find(c) != -1]
         if not has_index:
             connection.execute(sqlalchemy.sql.text(ftx_index), **fields)
 

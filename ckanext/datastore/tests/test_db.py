@@ -1,5 +1,6 @@
 import mock
 import nose
+from sqlalchemy.sql.elements import TextClause
 
 import ckan.new_tests.helpers as helpers
 
@@ -86,13 +87,20 @@ class TestCreateIndexes(object):
 
     def _assert_created_index_on(self, field, connection, resource_id, lang=None):
         if lang is not None:
-            sql_str = u'ON "resource_id" USING gist(to_tsvector(\'{lang}\', \'{field}\'))'
-            sql_str = sql_str.format(lang=lang, field=field)
+            sql_str = u'ON "resource_id" USING gist(to_tsvector(:lang, :field))'
         else:
             sql_str = u'USING gist({field})'.format(field=field)
 
         calls = connection.execute.call_args_list
-        was_called = [call for call in calls if call[0][0].find(sql_str) != -1]
+        fts_calls = [ call for call in calls if isinstance(call[0][0], TextClause) ]
+
+        was_called = False
+        for call in fts_calls:
+            if call[0][0].text.find(sql_str) != -1:
+                if lang is not None:
+                    assert lang == call[1]['lang']
+                    assert field == call[1]['field']
+                was_called = True
 
         assert was_called, ("Expected 'connection.execute' to have been ",
                             "called with a string containing '%s'" % sql_str)
