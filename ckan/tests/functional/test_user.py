@@ -113,9 +113,9 @@ class TestUserController(FunctionalTestCase, HtmlCheckMethods, PylonsTestCase, S
         offset = url_for(controller='user', action='login', id=None)
         res = self.app.get(offset, status=200)
         assert 'Login' in res, res
-        assert 'Please click your account provider' in res, res
-        assert 'Forgot your password?' in res, res
-        assert 'Don\'t have an OpenID' in res, res
+        #assert 'Please click your account provider' in res, res
+        #assert 'Forgot your password?' in res, res
+        #assert 'Don\'t have an OpenID' in res, res
 
     def test_logout(self):
         res = self.app.get('/user/_logout')
@@ -665,7 +665,7 @@ class TestUserController(FunctionalTestCase, HtmlCheckMethods, PylonsTestCase, S
         assert about in main_res, main_res
         fv = res.forms['user-edit']
         fv['about'] = new_about
-        fv['openid'] = new_openid
+        #fv['openid'] = new_openid
         fv['password1'] = new_password
         fv['password2'] = new_password
 
