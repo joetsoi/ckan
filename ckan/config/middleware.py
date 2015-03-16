@@ -18,6 +18,10 @@ from pylons.wsgiapp import PylonsApp
 from routes.middleware import RoutesMiddleware
 from repoze.who.config import WhoConfig
 from repoze.who.middleware import PluggableAuthenticationMiddleware
+try:
+    from sqltap.wsgi import SQLTapMiddleware
+except ImportError:
+    pass
 from fanstatic import Fanstatic
 
 from ckan.plugins import PluginImplementations
@@ -75,6 +79,8 @@ def make_app(conf, full_stack=True, static_files=True, **app_conf):
 
     # CUSTOM MIDDLEWARE HERE (filtered by error handling middlewares)
     #app = QueueLogMiddleware(app)
+    if asbool(config.get('debug', False)):
+        app = SQLTapMiddleware(app)
 
     # Fanstatic
     if asbool(config.get('debug', False)):
